@@ -1,16 +1,23 @@
-# javaee-workbook
+# Distributed Databases and NoSQL WorkBook
 
-# Content todos
-- [X] Do jdbc tutorial
-- [X] Do servlet tutorial
-- [ ] Do JSP tutorial
-- [ ] Do JSTL tutorial 
+# Зміст
 
-# Project build todos
-- [ ] Fix potential security vulnerability in one of dependencies
-- [ ] Add syntax highlight for workbook
-- [ ] Add syntax highlight for presentation
-- [ ] Add TOC for workbook
-- [ ] Add index for all tutorials for workbokk
-- [ ] Use remarkjs starter presentation template styles
-- [ ] 
+|Лекція|Пояснення|
+|-|-|
+|1. Основи контейниризації з використанням Docker|В даній лекції ми розглянемо інструмент **контейниризації** linux - контейнерів.|
+|2. Реплікація баз даних|В даній лекції ми розглянемо один із способів створення відмовостійкої архітектури баз даних - **реплікацію**.|
+|3. Щардування баз даних| В даній лекції ми розглянемо метод масштабування баз даних - **шардування**.|
+|4. Вступ до NoSQL баз даних|В даній лекції ми дізнаємося, що таке **NoSQL** - бази даних, причини їх виникнення і відміність від реляційних баз даних.|
+|5. Redis|В даній лекції ми розглянемо одну із найпопулярніших баз даних, яка використовує модель **ключ-значення**.|
+|6. MongoDB|В даній лекції ми розглянемо одну із найпопулярніших баз даних, яка використовує **документо - орієнтовану** модуль.|
+|7. Cassandra|В даній лекції ми розглянемо одну із найпопулярніших баз даних, яка використовує модель **Big Table**.|
+
+# Будування
+
+1. Встановіть [Node.JS](https://nodejs.org/)
+2. Відкрийте термінал в директорії із репозиторієм
+3. Виконайте команду ```npm i```
+4. Виконайте команду ```npx gulp``` або ```npm run build```
+5. Матеріали знаходяться в директорії dist:
+   1. dist/workbook - конспект лекцій і методичні вказівки до виконання лабораторних робіт
+   2. dist/presentations - презентації
