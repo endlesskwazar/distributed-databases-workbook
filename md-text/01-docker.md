@@ -38,8 +38,7 @@ ${toc}
 
 Докер працює не тільки на його рідній ОС, Linux, але також підтримується Windows і macOS. Єдина відмінність від взаємодії з Linux в тому, що на macOS і Windows платформа инкапсулируется в крихітну віртуальну машину. На даний момент Докер для macOS і Windows досяг значного рівня зручності у використанні.
 
-
-Крім того, існує безліч додаткових додатків, таких як Kitematic або Docker Machine, які допомагають встановлювати і використовувати Докер на платформах, відмінних від Linux.
+Крім того, існує безліч додаткових додатків, таких як Kitematic або Docker Machine, які допомагають встановлювати і використовувати Docker на платформах, відмінних від Linux.
 
 # Установка Docker на Windows
 
@@ -140,8 +139,7 @@ Share images, automate workflows, and more with a free Docker ID:
  https://hub.docker.com/
 
 For more examples and ideas, visit:
- https://docs.docker.com/get-started/
-
+https://docs.docker.com/get-started/
 ```
 
 # Docker Ubuntu bash example. Імена контейнерів
@@ -201,7 +199,7 @@ $ docker container ls -a
 
 ![](../resources/img/docker/img-6.png)
 
-Кожному контенеру було дано випадкове значення CONTAINER ID. Ми можимо використати це значення для того, щоб запустити потрібний нам контейнер:
+Кожному контейнеру було дано випадкове значення CONTAINER ID. Ми можимо використати це значення для того, щоб запустити потрібний нам контейнер:
 
 ```bash
 $ docker start -i 418
@@ -247,7 +245,7 @@ $ docker run -d IMAGE
 Спробуємо запустити Ubuntu в detached mode:
 
 ```bash
-$ docker run -d --name=d_ubuntu ubuntu
+$ docker run -d -i --name=d_ubuntu ubuntu
 ```
 
 ![](../resources/img/docker/img-12.png)
@@ -270,6 +268,20 @@ $ docker ps -a
 
 ## Docker exec
 
+exec - запускає команду в активному контейнері.
+
+```bash
+docker exec [OPTIONS] CONTAINER COMMAND [ARG...]
+```
+
+Для того щоб запустити команду, наприклад bash у контейнері d_ubuntu достатньо виконати команду:
+
+```bash
+docker exec -it d_ubunt bash
+```
+
+![](../resources/img/docker/img-37.png)
+
 
 # Node.js single script example
 
@@ -289,11 +301,9 @@ console.log("Hello from node in Docker!!!");
 $ docker run -it --rm --name my-running-script -v "$PWD":/usr/src/app -w /usr/src/app node:8 node index.js
 ```
 
-> **--rm** - 
+> **--rm** - видаляє зупинений контейнер
 > 
-> **-v** -
-> 
-> **-w** - 
+> **-v** - Том - це спеціально призначений каталог у межах одного або декількох контейнерів, який обходить файлову систему Union.
 > 
 > **node index.js** - команда, яка буде виконана в контейнері
 
@@ -379,33 +389,55 @@ RUN apt-get update
 RUN apt-get install -y nginx
 RUN echo 'Hi, I am in your container' \
         >/usr/share/nginx/html/index.html
-RUN service nginx start
+ENTRYPOINT service nginx restart && bash
 EXPOSE 80
 ```
 
 - Перша інструкція в Dockerfile завжди повинна бути FROM, яка вказує, з якого базового образу потрібно побудувати наший. У нашому прикладі ми будуємо образ з базового образу ubuntu версії 14:04.
 - Далі ми вказуємо інструкцію MAINTAINER, що повідомляє Docker про автора образу і його email. Це корисно, щоб користувачі образу могли зв'язатися з автором при необхідності.
 - Інструкція RUN виконує команду в конкретному образі. У нашому прикладі за допомогою її ми оновлюємо APT репозиторії і встановлюємо пакет з NGINX, потім створюємо файл /usr/share/nginx/html/index.html.
+- Інструкція ENTRYPOINT вказує, яку команду необхідно запустити, коли контейнер запущений. На відміну від команди RUN зазначена команда виконується не під час побудови образу, а під час запуску контейнера.
 - Далі ми вказуємо інструкцію EXPOSE, яка говорить Docker, що додаток в контейнері повинен використовувати певний порт в контейнері. Це не означає, що ви можете автоматично отримувати доступ до сервісу, запущеного на порту контейнера (в нашому прикладі порт 80). З міркувань безпеки Docker не відчиняє порт автоматично, але очікує, коли це зробить користувач в команді docker run. Ви можете вказати безліч інструкцій EXPOSE для вказівки, які порти повинні бути відкриті. Також інструкція EXPOSE корисна для проброса портів між контейнерами.
 
 Для того щоб побудувати зоображення потрібно використати команду:
 
 ```cpp
+docker build -t endlesskwazar/docfileexml .
 ```
 
-![]()
+![](../resources/img/docker/img-34.png)
 
 Тепер запустимо зоображення командою:
 
 ```bash
+docker container run -it -p 80:80 --name=my-image endlesskwazar/docfileexml
 ```
 
-![]()
+![](../resources/img/docker/img-35.png)
 
 
-## Node.js Dockerfile example. ENV - змінні
+## Node.js Dockerfile example
 
-## Включення локальних файлів в зоображення. MOVE vs COPY vs MOUNT
+Склонуйте репозиторій https://github.com/endlesskwazar/distributed-databases-examples.git. Перейдіть на гілку example1.
+
+Для того щоб побудувати зоображення виконайте команду:
+
+```
+docker build -t <your username>/node-web-app .
+```
+
+Для того щоб запустити контейнер виконайте команду:
+
+```
+docker run -p 49160:8080 -d <your username>/node-web-app
+```
+
+Перейдіть за адресою localhost:49160
+
+![](../resources/img/docker/img-36.png)
+
+
+## Включення локальних файлів в зоображення. COPY VS ADD
 
 В одному із минулих прикладів, ми створювали новий файл всередині контейнера, але часто існує потреба передати файли із хостової операційної системи в контейнер. Для цієї задачі в docker існують два способи:
 
@@ -420,12 +452,19 @@ EXPOSE 80
 COPY <source>... <destination>
 COPY ["<source>",... "<destination>"]
 ```
-Запустимо термінал із директорії в, якій міститься файд file.txt
 
-![](../resources/img/docker/img-11.png)
+### ADD
 
-Тоді для запуска зоображення Ubuntu і копіювання в нього файл file.txt можна використати наступну команду:
+Ця інструкція має подібний синтаксис до COPY.
 
+```bash
+ADD <source>... <destination>
+ADD ["<source>",... "<destination>"]
+```
+
+Окрім копіювання локальних файлів і каталогів у пункт призначення на зображенні Docker, він має деякі додаткові функції:
+- Якщо &lt;source&gt; є локальним архівом tar у розпізнаному форматі стиснення, то він автоматично розпаковується у вигляді каталогу до зображення Docker. Наприклад: ADD rootfs.tar.xz /
+- Якщо &lt;source&gt; є URL-адресою, то він завантажуватиме та копіюватиме файл у пункті призначення, розташованого на зображенні Docker. Однак Docker не рекомендує використовувати ADD для цієї мети.
 
 # Docker compose
 
@@ -437,7 +476,7 @@ COPY ["<source>",... "<destination>"]
 
 В прикладі ми будемо використовувати ["monorepo"](https://cacm.acm.org/magazines/2016/7/204032-why-google-stores-billions-of-lines-of-code-in-a-single-repository/fulltext). Код кожного сервісу (frontend, api, worker, etc) знаходиться в своїй директорії і має Dockerfile. Приклад структури проекту можна подивитися [тут](https://github.com/auxilincom/docker-compose-starter).
 
-## NodeJs і MongoDB
+## Node.Js і MongoDB
 
 Почнемо з автоматизації простого Node.JS застосунка, яке працює з базою даних MongoDB. Ось так буде виглядати конфігураційний файл:
 
@@ -456,7 +495,7 @@ services:
     command: mongod
     image: mongo:3.2.0
     ports:
-      - "27100:27017" # map port to none standard port, to avoid conflicts with locally installed mongodb. 
+      - "27017:27017"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 ```
@@ -474,6 +513,7 @@ docker-compose up
 - >volumes: - "./web/src:/web/src" - так код додається як "volume" в Docker.
 - >Docker-compose автоматично "пов'язує" контейнери. Завдяки цьому є можливо звертатися до сервісу по імені. Наприклад, з сервісу web ви можете підключиться до бази даних MongoDB: mongodb: // mongo: 27017
 
+Приклад проекту можна подивитися на **https://github.com/endlesskwazar/distributed-databases-examples**. Гілка **example2**.
 
 
 ## Завжди використовуйте --build
@@ -487,4 +527,13 @@ docker-compose up
 docker-compose up --build "$@"
 ```
 
+# Домашнє завдання
+
+Використовуючи Docker Compose створіть середовище розробки для застосунка на PHP, який використовує MySQL. Проект завантажити на репозиторій(гілка lb1). Додати користувача endlesskwazar@gmail.com до репозитоія.
+
 # Контрольні запитання
+1. Що таке Docker? Наведіть області його застосування.
+2. Чим образи відрізняються від контейнерів?
+3. Що таке Dockerfile. Перелічіть, що в ньому може бути написане.
+4. Чим COPY відрізняється від ADD?
+5. Що таке Docker - compose?

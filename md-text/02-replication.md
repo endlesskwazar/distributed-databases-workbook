@@ -103,11 +103,14 @@ $master = mysql_connect($masters[array_rand($masters)], 'root', 'pwd');
 mysql_query('INSERT INTO users ...', $master);
 ```
 
-Переваги Master-Master реплікації:
--іваів-ів
--іваіва
+**Переваги Master-Master реплікації**:
+- Менше накладних росходів на перемикання
+- Вище швидкість вирішення аварійних ситуацій
+- Географічне розподілення дозволяє бути блище до клієнта
 
-Недоліки Master-Master реплікації
+**Недоліки Master-Master реплікації:**:
+- Щоб швидко працювати в умовах конкурентного доступу потрібні транзакції і ACID. У випадку Master-Master додається новий клас конфліктів.
+
 
 # Синхронізація даних
 
@@ -130,6 +133,161 @@ mysql_query('INSERT INTO users ...', $master);
 Тут у нас виникає якась затримка "спілкування" з slave - сервером в момент виконання операції "commit". Саме ця затримка є причиною уявлень про те, що все буде вкрай повільно.
 
 # Налаштування реплікації в MySQL з використанням Docker
+
+## Налаштування вбудованої реплікації MySQL
+
+### Етап 1
+
+На сервері, який буде виступати майстром, необхідно внести правки в my.cnf:
+
+```
+# Вибираємо ID сервера, довільне число, краще починати з 1
+server-id = 1
+
+# Шлях до бінарного лога
+log_bin = /var/log/mysql/mysql-bin.log
+
+# Назву бази даних репліки
+binlog_do_db = newdatabase
+```
+
+Перезапускаємо Mysql:
+
+```
+/etc/init.d/mysql restart
+```
+
+### Етап 2
+
+Далі необхідно створити профіль користувача, з під якого відбуватиметься реплікація. Для цього запускаємо консоль:
+
+```
+mysql -u root -p
+```
+
+Далі створюємо і призначаємо права користувачеві для репліки:
+
+```
+GRANT REPLICATION SLAVE ON *.* TO 'slave_user'@'%' IDENTIFIED BY 'password';
+FLUSH PRIVILEGES;
+```
+
+Далі блокуємо всі таблиці в нашій базі даних:
+
+```
+USE newdatabase;
+FLUSH TABLES WITH READ LOCK;
+```
+
+Перевіряємо статус Майстер-сервера:
+
+```
+SHOW MASTER STATUS;
+```
+
+Ми побачимо щось схоже на:
+
+```
+mysql> SHOW MASTER STATUS;
++------------------+----------+--------------+------------------+
+| File             | Position | Binlog_Do_DB | Binlog_Ignore_DB |
++------------------+----------+--------------+------------------+
+| mysql-bin.000001 |      107 | newdatabase  |                  |
++------------------+----------+--------------+------------------+
+1 row in set (0.00 sec)
+```
+
+### Етап 3
+
+Тепер необхідно зробити дамп бази даних:
+
+```
+mysqldump -u root -p newdatabase > newdatabase.sql
+```
+
+Розблокуємо таблиці в консолі mysql:
+
+```
+UNLOCK TABLES;
+```
+
+### Етап 4
+
+В консолі mysql на слейв створюємо базу з таким же ім'ям, як і на Майстрі:
+
+```
+CREATE DATABASE newdatabase;
+```
+
+Після цього завантажуємо дамп (з bash):
+
+```
+mysql -u root -p newdatabase < newdatabase.sql
+```
+
+### Етап 5
+
+В налаштуваннях my.cnf на слейв необхідно вказати такі параметри:
+
+```
+# ID слейв, зручно вибирати таким числом після Майстри
+server-id = 2
+
+# Шлях до relay
+relay-log = /var/log/mysql/mysql-relay-bin.log
+
+# Шлях до bin на Майстрі
+log_bin = /var/log/mysql/mysql-bin.log
+
+# База даних для реплікації
+binlog_do_db = newdatabase
+```
+
+### Етап 6
+
+Нам залишилося включити реплікацію, для цього необхідно вказати параметри підключення до майстра. В консолі mysql на слейв необхідно виконати запит:
+
+```
+CHANGE MASTER TO MASTER_HOST='10.10.0.1', MASTER_USER='slave_user', MASTER_PASSWORD='password',
+MASTER_LOG_FILE = 'mysql-bin.000001', MASTER_LOG_POS = 107;
+```
+
+Після цього запускаємо реплікацію на слейв:
+
+```
+START SLAVE;
+```
+
+## Налаштування вбудованої реплікації MySQL з використанням Docker
+
+Docker дозволяє легко запускати декілька незалежних екземплярів mysql на одній машині.
+
+Приклад реплікації за допомогою Docker можна взяти із **https://github.com/endlesskwazar/distributed-databases-examples** гілка example3.
+
+Запуск і тестування:
+
+```
+docker-compose up -d
+```
+
+![](../resources/img/replication/img-3.png)
+
+```
+docker-compose logs -f mysqlconfigure
+```
+
+![](../resources/img/replication/img-4.png)
+
+
+```
+docker-compose exec mysqlmaster mysql -uroot -proot -e "CREATE DATABASE test_replication;"
+```
+
+```
+docker-compose exec mysqlslave mysql -uroot -proot -e "SHOW DATABASES;"
+```
+
+![](../resources/img/replication/img-5.png)
 
 
 # Ручна реплікація
@@ -162,11 +320,11 @@ mysql_query('SELECT * FROM users WHERE ...', $connection_read);
 
 # Summary
 
-Реплікація використовується в більшій мірі для резервування баз даних і в меншій для масштабування. Master-Slave реплікація зручна для розподілу запитів читання по декількох серверах.
+Реплікація використовується в більшій мірі для резервування баз даних і в меншій для масштабування. Master-Slave реплікація зручна для розподілу запитів читання по декількох серверах. Master - Master реплікація складна в налаштуванні. 
 
 # Домашнє завдання
 
-## Варіанти
+За допомогою Docker Compose створіть PHP - застосунок, який використовує реплікацію. Застосунок завантажте на репозиторій(гілка lb2).
 
 # Контрольні запитання
 
