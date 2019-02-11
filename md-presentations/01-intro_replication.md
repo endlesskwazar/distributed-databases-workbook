@@ -215,14 +215,148 @@ $master = mysql_connect($masters[array_rand($masters)], 'root', 'pwd');
 
 
 
+## Налаштування реплікації в MySQL
+
+
+### Етап 1
+На сервері, який буде виступати майстром, необхідно внести правки в my.cnf:
+
+```
+# Вибираємо ID сервера, довільне число, краще починати з 1
+server-id = 1
+# Шлях до бінарного лога
+log_bin = /var/log/mysql/mysql-bin.log
+# Назву бази даних репліки
+binlog_do_db = newdatabase
+```
+Перезапускаємо Mysql:
+```
+/etc/init.d/mysql restart
+```
+
+
+### Етап 2
+
+Далі необхідно створити профіль користувача, з під якого відбуватиметься реплікація. Для цього запускаємо консоль:
+```
+mysql -u root -p
+```
+Далі створюємо і призначаємо права користувачеві для репліки:
+```
+GRANT REPLICATION SLAVE ON *.* TO 'slave_user'@'%' IDENTIFIED BY 'password';
+FLUSH PRIVILEGES;
+```
+Далі блокуємо всі таблиці в нашій базі даних:
+```
+USE newdatabase;
+FLUSH TABLES WITH READ LOCK;
+```
+
+
+### Етап 3
+Тепер необхідно зробити дамп бази даних:
+```
+mysqldump -u root -p newdatabase > newdatabase.sql
+```
+Розблокуємо таблиці в консолі mysql:
+```
+UNLOCK TABLES;
+```
+
+
+### Етап 4
+В консолі mysql на слейв створюємо базу з таким же ім'ям, як і на Майстрі:
+```
+CREATE DATABASE newdatabase;
+```
+Після цього завантажуємо дамп (з bash):
+```
+mysql -u root -p newdatabase < newdatabase.sql
+```
+
+
+### Етап 4
+В налаштуваннях my.cnf на слейв необхідно вказати такі параметри:
+```
+# ID слейв, зручно вибирати таким числом після Майстри
+server-id = 2
+# Шлях до relay
+relay-log = /var/log/mysql/mysql-relay-bin.log
+# Шлях до bin на Майстрі
+log_bin = /var/log/mysql/mysql-bin.log
+# База даних для реплікації
+binlog_do_db = newdatabase
+```
+
+
+### Етап 6
+Нам залишилося включити реплікацію, для цього необхідно вказати параметри підключення до майстра. В консолі mysql на слейв необхідно виконати запит:
+```
+CHANGE MASTER TO MASTER_HOST='10.10.0.1', MASTER_USER='slave_user', MASTER_PASSWORD='password',
+MASTER_LOG_FILE = 'mysql-bin.000001', MASTER_LOG_POS = 107;
+```
+Після цього запускаємо реплікацію на слейв:
+```
+START SLAVE;
+```
+
+
+
 ## Налаштування реплікації в MySQL з використанням Docker
+
+
+### Налаштування реплікації в MySQL з використанням Docker
+Docker дозволяє легко запускати декілька незалежних екземплярів mysql на одній машині.
+
+
+### Налаштування реплікації в MySQL з використанням Docker
+Приклад реплікації за допомогою Docker можна взяти із **https://github.com/endlesskwazar/distributed-databases-examples** гілка example3.
+Запуск і тестування:
+```
+docker-compose up -d
+```
+```
+docker-compose logs -f mysqlconfigure
+```
+```
+docker-compose exec mysqlmaster mysql -uroot -proot -e "CREATE DATABASE test_replication;"
+```
+```
+docker-compose exec mysqlslave mysql -uroot -proot -e "SHOW DATABASES;"
+```
 
 
 
 ## Ручна реплікація
 
 
+### Ручна реплікація
+Слід пам'ятати, що реплікація - це не технологія, а методика. Вбудовані механізми реплікації можуть принести непотрібні ускладнення або не мати якийсь потрібної функції. Деякі технології взагалі не мають вбудованої реплікації.
 
-### Summary
+У таких випадках, слід використовувати самостійну реалізацію реплікації. У найпростішому випадку, додаток буде дублювати всі запити відразу на кілька серверів бази даних.
 
-Реплікація використовується в більшій мірі для резервування баз даних і в меншій для масштабування. Master-Slave реплікація зручна для розподілу запитів читання по декількох серверах.
+
+### Ручна реплікація
+
+```php
+&lt;?
+dbs = [
+	'10.10.0.1',
+	'10.10.0.2'
+];
+
+foreach ( dbs as db )
+{
+	connection = mysql_connect(db, 'root', 'pwd');
+	mysql_query('INSERT INTO users ...', connection);
+}
+
+connection_read = mysql_connect(dbs[array_rand(dbs)], 'root', 'pwd');
+mysql_query('SELECT * FROM users WHERE ...', connection_read);
+```
+
+
+
+## Summary
+
+Реплікація використовується в більшій мірі для резервування баз даних і в меншій для масштабування. Master-Slave реплікація зручна для розподілу запитів читання по декількох серверах. Master - Master реплікація складна в налаштуванні.
