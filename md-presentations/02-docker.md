@@ -41,7 +41,7 @@
 
 ### Установка Docker
 
-Перейдіть на сайт [https://www.docker.com.ua](https://www.docker.com.ua):
+Перейдіть на сайт [https://www.docker.com](https://www.docker.com):
 
 ![](../resources/img/docker/img-23.png)
 
