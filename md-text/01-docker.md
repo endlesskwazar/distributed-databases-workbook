@@ -484,13 +484,14 @@ npm init
 Встановимо залежності для проекту:
 
 ```bash
-npm i mongoose express nodemon mongodb
+npm i mongoose express nodemon mongodb cors
 ```
 
 Створимо файл index.js з наступним вмістом:
 
 ```js
 const express = require("express");
+const cors = require('cors');
 const mongoose = require('mongoose');
 const http = require('http');
 
@@ -502,6 +503,7 @@ const Wish = new mongoose.model('Wish', new mongoose.Schema({
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 app.post('/api/wishes', async (req, res) => {
     console.log(req.body);
@@ -545,6 +547,7 @@ http.createServer(app).listen(process.env.API_PORT, () => {
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.17.1",
     "mongodb": "^3.5.2",
     "mongoose": "^5.8.11",
@@ -582,7 +585,7 @@ npm-debug.log
 
 ```
 MONGO_URL=mongodb://mongo:27017/wish
-API_PORT=3000
+API_PORT=3001
 ```
 
 Створимо файл docker-compose.dev.yml:
@@ -636,6 +639,171 @@ docker-compose -f docker-compose.dev.yml up --build
 ![](../resources/img/docker/img-39.png)
 
 ![](../resources/img/docker/img-40.png)
+
+Перейдемо в корінь проекту і виконайємо команду:
+
+```bash
+npx create-react-app client
+```
+
+Модифікуємо файл client/App.js:
+
+```js
+import React from 'react';
+
+class App extends React.Component {
+
+  constructor() {
+    super();
+    this.API_BASE = 'http://localhost:3001/api/wishes';
+    this.state = {
+      wishes: [],
+      newWish: null
+    }
+  }
+
+  onChange = (e) => {
+    const text = e.target.value;
+    const newWish = { title: text };
+    this.setState({ newWish });
+  }
+
+  onSubmit = (e) => {
+    e.preventDefault();
+    fetch(this.API_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(this.state.newWish)
+    })
+      .then(res => this.updateWishesList())
+      .catch(e => console.log(e));
+  }
+
+  componentDidMount() {
+    this.updateWishesList();
+  }
+
+  updateWishesList = () => {
+    fetch(this.API_BASE)
+      .then(res => res.json())
+      .then(json => {
+        this.setState({
+          wishes: json
+        });
+      })
+      .catch(e => console.log(e));
+  }
+
+  render() {
+    const { wishes } = this.state;
+    const wishesItems = wishes.map(wish => {
+      return <WishItem key={wish._id} wish={wish} />
+    });
+
+    return (
+      <div>
+        <h1>Wish App</h1>
+        <div>
+          <AddWishForm onChange={this.onChange} onSubmit={this.onSubmit} />
+        </div>
+        <hr />
+        <ul>
+          {wishesItems}
+        </ul>
+      </div>
+    );
+  }
+
+}
+
+function WishItem({ wish }) {
+  return (
+    <li>{wish.title}</li>
+  );
+}
+
+function AddWishForm({ onChange, onSubmit }) {
+
+  return (
+    <div>
+      <form onSubmit={onSubmit}>
+        <input type="text" onChange={onChange} />
+        <input type="submit" />
+      </form>
+    </div>
+  );
+}
+
+export default App;
+```
+
+Створимо файли Dockerfile.dev і .dockerignore в директорії client:
+
+Dockerfile.dev:
+```
+from node:12
+WORKDIR /usr/src/app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD [ "npm", "start"]
+```
+
+.gitignore
+```
+node_modules
+npm-debug.log
+```
+
+Модифікуємо файл docker-compose.dev.yml:
+```yml
+version: '3'
+
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    image: wish-api-dev
+    volumes:
+      - ./api:/usr/src/app
+      - /api/node_modules
+    ports:
+      - ${API_PORT}:${API_PORT}
+    environment:
+      - MONGO_URL=${MONGO_URL}
+      - API_PORT=${API_PORT}
+    depends_on:
+      - mongo
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    image: wish-client-dev
+    volumes:
+      - ./client:/usr/src/app
+      - /api/node_modules
+    ports:
+      - 3000:3000
+    depends_on:
+      - api
+  mongo:
+    image: mongo
+    volumes:
+      - ./data/dev:/data/db
+    ports:
+      - "27017:27017"
+```
+
+Щоб запустити проект, нам знадобитися одна команда:
+
+```bash
+docker-compose -f docker-compose.dev.yml up --build
+```
+
 
 Приклад проекту можна подивитися на **https://github.com/endlesskwazar/distributed-databases-examples**. Гілка **docker-compose-node-mongo-react**.
 

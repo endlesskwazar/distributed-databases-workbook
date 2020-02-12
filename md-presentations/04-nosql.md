@@ -341,4 +341,5 @@ ACID:
 
 
 ### Рекомендована література
+
 ![](../resources/img/nosql/img-3.jpg)![](../resources/img/nosql/img-4.jpg)
