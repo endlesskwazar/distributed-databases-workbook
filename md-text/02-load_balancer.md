@@ -1,6 +1,4 @@
-# Docker
-
-# Зміст
+# Load balancing
 
 ${toc}
 
@@ -25,15 +23,146 @@ ${toc}
 
 # Docker і NGINX. Serve static
 
-Створимо директорію static а в ній HTML файл text.txt
+Створимо наступну структуру проекту:
 
-В директорії static створимо директорію media і в ній sound.mp3
+![](../resources/img/load_balancer/8.png)
 
-В рутовій директорії на рівні static створимо Dockerfile:
+Вміст index.html:
 
-```dockerfile
-
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    NGINX Serve static
+</body>
+</html>
 ```
+
+Вміст 404.html:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>404 Not found</title>
+</head>
+<body>
+    
+    <h1>404. Not found!!!</h1>
+
+</body>
+</html>
+```
+
+В рутовій директорії на рівні public створимо Dockerfile:
+
+```Dockerfile
+FROM ubuntu:latest
+
+USER root
+
+RUN apt-get update
+RUN apt-get install -y nginx
+
+# Remove the default Nginx configuration file
+RUN rm -v /etc/nginx/nginx.conf
+
+# Copy a configuration file from the current directory
+ADD nginx.conf /etc/nginx/
+
+ADD public /usr/share/nginx/html/
+ADD public /var/www/html/
+
+# Append "daemon off;" to the beginning of the configuration
+RUN echo "daemon off;" >> /etc/nginx/nginx.conf
+
+# Expose ports
+EXPOSE 80
+
+# Set the default command to execute
+# when creating a new container
+CMD service nginx start
+```
+
+В процесі будування буде зроблене наступне:
+
+- В якості основи буде взята остання версія Ubuntu
+- Установиться NGINX
+- Видалиться файл конфігурації nginx, який використовується за замовчуванням
+- Скопіюється файл конфігурації NGINX, який знаходиться в проекті
+- Вміст проекту буде скопійований в /usr/share/nginx/html/, /var/www/html/ директорії контейнера
+- daemon off; - потрібен для того щоб процес nginx не закривався, якщо запущений через docker.          Проблема полягає в тому, що спосіб роботи Nginx полягає в тому, що початковий процес негайно породжує основний процес Nginx та деяких працівників, а потім виходить з ладу. Оскільки Докер дивиться лише PID оригінальної команди, контейнер зупиняється.
+- Виставляємо порт
+- Запускаємо сервіс Nginx
+
+Конфігурація самого NGINX виглядає наступним чином:
+
+nginx.conf:
+```
+worker_processes 1;
+
+events { worker_connections 1024; }
+
+http {
+    sendfile on;
+
+    server {
+        root /usr/share/nginx/html/;
+        index index.html;
+        server_name serve_static;
+        listen 80;
+
+        # Force all paths to load either itself (js files) or go through index.html.
+        location = / {
+            try_files /index.html =404;
+        }
+
+        location / {
+            try_files $uri /404.html;
+        }
+
+    }
+}
+```
+
+Створимо файл docker-compose.yml, який слугує лише для збирання нашого зоображення:
+
+docker-compose.yml:
+```yml
+version: '3'
+
+services:
+  nginx-serve-static:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: nginx-serve-static
+    ports:
+      - 80:80
+```
+
+Запустити проект можна командою:
+```bash
+docker-compose up --build
+```
+
+![](../resources/img/load_balancer/9.png)
+
+![](../resources/img/load_balancer/10.png)
+
+![](../resources/img/load_balancer/11.png)
+
+Проект можна знайти на [nginx-serve-static](https://github.com/endlesskwazar/distributed-databases-examples/tree/nginx-serve-static).
+
 
 # Python, gunicorn, nginx
 
