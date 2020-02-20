@@ -558,13 +558,12 @@ http.createServer(app).listen(process.env.API_PORT, () => {
 
 Створимо в тій же директорії файл Dockerfile.dev:
 ```
-from node:12
+FROM node:12
 WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm install
 COPY . .
 EXPOSE ${API_PORT}
-CMD [ "npm", "run", "dev"]
 ```
 
 - WORKDIR /usr/src/app - створюємо директорію в контейнері й робимо її активною
@@ -572,7 +571,6 @@ CMD [ "npm", "run", "dev"]
 - RUN npm install - інсталюємо залежності
 - COPY . . - копіюємо весь додаток в контейнер
 - EXPOSE ${API_PORT} - виставляємо порт для прослуховування
-- CMD [ "npm", "run", "dev"] - запускаємо команду в контейнері
 
 Створимо файл .dockerignore він допоможе не уопіювати зайві файли:
 
@@ -586,6 +584,7 @@ npm-debug.log
 ```
 MONGO_URL=mongodb://mongo:27017/wish
 API_PORT=3001
+CLIENT_PORT=3000
 ```
 
 Створимо файл docker-compose.dev.yml:
@@ -599,9 +598,11 @@ services:
       context: ./api
       dockerfile: Dockerfile.dev
     image: wish-api-dev
+    command: npm run dev
     volumes:
-      - ./api:/usr/src/app
-      - /api/node_modules
+      - ./api/:/usr/src/app/
+      - /usr/src/app/node_modules
+    command: npm run dev
     ports:
       - ${API_PORT}:${API_PORT}
     environment:
@@ -609,7 +610,7 @@ services:
       - API_PORT=${API_PORT}
     depends_on:
       - mongo
-  mongo:
+mongo:
     image: mongo
     volumes:
       - ./data/dev:/data/db
@@ -625,6 +626,7 @@ services:
 - volumes - перелік мапінга локальних і директорій в контейнері
 - ports - виставлення порту контейнера на поверхню
 - environment - передача змінних в контейнер
+- command - команда, яка буде запущена в контейнері
 - depends_on - api залежить від БД. Чекати із запуском контейнера, доки не буде запущена база.
 
 
@@ -743,13 +745,12 @@ export default App;
 
 Dockerfile.dev:
 ```
-from node:12
+FROM node:12
 WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm install
 COPY . .
-EXPOSE 3000
-CMD [ "npm", "start"]
+EXPOSE ${CLIENT_PORT}
 ```
 
 .gitignore
@@ -768,9 +769,11 @@ services:
       context: ./api
       dockerfile: Dockerfile.dev
     image: wish-api-dev
+    command: npm run dev
     volumes:
-      - ./api:/usr/src/app
-      - /api/node_modules
+      - ./api/:/usr/src/app/
+      - /usr/src/app/node_modules
+    command: npm run dev
     ports:
       - ${API_PORT}:${API_PORT}
     environment:
@@ -785,9 +788,10 @@ services:
     image: wish-client-dev
     volumes:
       - ./client:/usr/src/app
-      - /api/node_modules
+      - /usr/src/app/node_modules
+    command: npm start
     ports:
-      - 3000:3000
+      - ${CLIENT_PORT}:${CLIENT_PORT}
     depends_on:
       - api
   mongo:
@@ -804,8 +808,7 @@ services:
 docker-compose -f docker-compose.dev.yml up --build
 ```
 
-
-Приклад проекту можна подивитися на **https://github.com/endlesskwazar/distributed-databases-examples**. Гілка **docker-compose-node-mongo-react**.
+Приклад проекту можна подивитися на **https://github.com/endlesskwazar/distributed-databases-examples**. Гілка **mmr**.
 
 
 ## Завжди використовуйте --build
