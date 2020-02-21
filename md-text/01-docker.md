@@ -610,7 +610,7 @@ services:
       - API_PORT=${API_PORT}
     depends_on:
       - mongo
-mongo:
+  mongo:
     image: mongo
     volumes:
       - ./data/dev:/data/db
