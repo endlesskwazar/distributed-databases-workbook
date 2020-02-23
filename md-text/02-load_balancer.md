@@ -264,8 +264,79 @@ $(pf_nginx) docker container run -it -p 8000:8000 --name=pf_nginx_simple  pf_ngi
 
 ![](../resources/img/load_balancer/14.png)
 
-## Flask gunicorn nginx docker app
+## Flask gunicorn docker app
 
+Якщо подивитися на вивід запущеного flask додатку можна побачити попередження:
+
+```
+WARNING: This is a development server. Do not use it in a production deployment.
+```
+
+В наш поточний спосіб додаток ніяк не готовий до продакшина. Для цілей продакшина ми будемо використовувати gunicorn і nginx:
+
+
+**Gunicorn** - автономний веб-сервер з великою функціональністю, наданої в зручному вигляді. Він спочатку підтримує різні фреймворки і адаптери, що робить його надзвичайно простий у використанні прямої заміною для багатьох серверів розробки.
+
+Технічно Gunicorn працює подібно Unicorn, популярному веб-сервера додатків Ruby. Вони обидва використовують так звану pre-fork модель (це означає, що головний процес управляє ініційованими робочими процесами різного типу, створює сокети і з'єднання, і т.п.).
+
+Модифікуємо файл **requirements.txt:**
+
+```
+Flask==1.1.1
+gunicorn==20.0.4
+```
+
+В директорію src додамо файл wsgi.py, який буде служити точкою входу в наш додаток. Це покаже сервера Gunicorn, як взаємодіяти з додатком.
+
+**wsgi.py:**
+
+```py
+from main import app
+
+if __name__ == "__main__":
+    app.run()
+```
+
+Для тестування змінимо ENTRYPOINT в Dockerfile:
+
+**web/Dockerfile:**
+```
+FROM ubuntu:18.04
+
+USER root
+
+RUN apt-get update
+RUN apt-get install -y python3-pip
+
+WORKDIR /requirements
+COPY requirements.txt ./
+
+RUN pip3 install -r requirements.txt
+
+WORKDIR /app
+
+COPY ./src .
+
+EXPOSE 8000
+
+ENTRYPOINT [ "gunicorn", "--bind", "0.0.0.0:8000", "wsgi:app" ]
+```
+
+Побудувати зоображення можна командою:
+
+```bash
+$(pf_nginx) docker build -t pf_gunicorn_test ./web
+```
+
+Запустити контейнер:
+
+```bash
+$(pf_nginx) docker container run -it -p 8000:8000 --name=pf_gunicorn_test pf_gunicorn_test
+```
+
+![](../resources/img/load_balancer/15.png)
+
+![](../resources/img/load_balancer/16.png)
 
 # Балансування навантаження
 
@@ -327,6 +398,140 @@ IP-хешування може бути надзвичайно ефективн�
 # Балансування навантаження, використовуючи NGINX
 
 ## Python, gunicorn, nginx load balancing
+
+Для початку створимо docker-compose.yml файл в корені проекту і спробуємо розгортати більше одного web - контейнера:
+
+**docker-compose.yml:**
+
+```yml
+version: '3'
+
+services:
+  web_1:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: web_1
+    ports:
+      - ${WEB_1_PORT}:${WEB_1_PORT}
+    environment:
+      - PORT=${WEB_1_PORT}
+```
+
+Файл docker-compose.yml використовує змінні оточення тому створемо файл .env:
+
+**.env**:
+
+```
+WEB_1_PORT=8001
+WEB_2_PORT=8002
+WEB_3_PORT=8003
+```
+
+Нам також доведеться модифікувати Dockerfile для python - додатка:
+
+**web/Dockerfile:**:
+
+```
+FROM ubuntu:18.04
+
+USER root
+
+RUN apt-get update
+RUN apt-get install -y python3-pip
+
+WORKDIR /requirements
+COPY requirements.txt ./
+
+RUN pip3 install -r requirements.txt
+
+WORKDIR /app
+
+COPY ./src .
+
+EXPOSE ${URL}
+
+ENTRYPOINT gunicorn --bind 0.0.0.0:${PORT} --workers=3 wsgi:app
+```
+
+І для тестування модифікуємо сам додаток:
+
+**web/src/main.py**:
+
+```py
+from flask import Flask, request
+import time
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "Response from flask on " + request.host_url
+
+if __name__ == "__main__":
+    # Only for debugging while developing
+    app.run(host="0.0.0.0", debug=True, port=8000)
+```
+
+Запустити інфраструктуру можна за допомогою команди:
+
+```bash
+docker-compose up --build
+```
+
+![](../resources/img/load_balancer/17.png)
+
+Додамо ще два сервіси:
+
+**docker-compose.yml:**
+```yml
+version: '3'
+
+services:
+  web_1:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: web_1
+    ports:
+      - ${WEB_1_PORT}:${WEB_1_PORT}
+    environment:
+      - PORT=${WEB_1_PORT}
+  web_2:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: web_2
+    ports:
+      - ${WEB_2_PORT}:${WEB_2_PORT}
+    environment:
+      - PORT=${WEB_2_PORT}
+  web_3:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: web_3
+    ports:
+      - ${WEB_3_PORT}:${WEB_3_PORT}
+    environment:
+      - PORT=${WEB_3_PORT}
+```
+
+Запустити інфраструктуру можна за допомогою команди:
+
+```bash
+docker-compose up --build
+```
+
+![](../resources/img/load_balancer/18.png)
+
+![](../resources/img/load_balancer/19.png)
+
+![](../resources/img/load_balancer/20.png)
+
+![](../resources/img/load_balancer/21.png)
+
+
 
 ## Helth checks
 
