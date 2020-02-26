@@ -397,6 +397,72 @@ IP-хешування може бути надзвичайно ефективн�
 
 # Балансування навантаження, використовуючи NGINX
 
+Найпростіша конфігурація для балансування навантаження з nginx може виглядати наступним чином:
+
+```
+http {
+    upstream myapp1 {
+        server srv1.example.com;
+        server srv2.example.com;
+        server srv3.example.com;
+    }
+
+    server {
+        listen 80;
+
+        location / {
+            proxy_pass http://myapp1;
+        }
+    }
+}
+```
+
+У наведеному вище прикладі є 3 екземпляри однієї програми, що працює на srv1-srv3. Коли метод балансування навантаження не вказаний, він за замовчуванням є Round Robin. Усі запити передаються в проксі до групи серверів myapp1, і nginx застосовує балансування навантаження HTTP для розподілу запитів.
+
+
+Інший метод балансування навантаження є least-connected. Метод least-connected в nginx активується, коли директива least-connected використовується як частина конфігурації групи серверів:
+
+```
+upstream myapp1 {
+        least_conn;
+        server srv1.example.com;
+        server srv2.example.com;
+        server srv3.example.com;
+    }
+```
+
+Зауважте, що при балансуванні навантаження Round Robin або Least Connected кожен наступний запит клієнта може бути потенційно розподілений на інший сервер. Немає гарантії того, що той самий клієнт завжди буде спрямований на один і той же сервер.
+
+Якщо є необхідність прив’язати клієнта до конкретного сервера додатків - іншими словами, зробіть сеанс клієнта "липким" або "стійким" з точки зору того, щоб завжди намагатися вибрати конкретний сервер - метод ip_hash може бути вибраний.
+
+```cpp
+upstream myapp1 {
+    ip_hash;
+    server srv1.example.com;
+    server srv2.example.com;
+    server srv3.example.com;
+}
+```
+
+
+Також можливо ще більше впливати на алгоритми балансування навантаження nginx, використовуючи ваги сервера.
+
+```
+upstream myapp1 {
+        server srv1.example.com weight=3;
+        server srv2.example.com;
+        server srv3.example.com;
+}
+
+upstream myapp1 {
+        least_conn;
+        server srv1.example.com weight=3;
+        server srv2.example.com;
+        server srv3.example.com;
+}
+```
+
+
 ## Python, gunicorn, nginx load balancing
 
 Для початку створимо docker-compose.yml файл в корені проекту і спробуємо розгортати більше одного web - контейнера:
@@ -459,6 +525,7 @@ ENTRYPOINT gunicorn --bind 0.0.0.0:${PORT} --workers=3 wsgi:app
 **web/src/main.py**:
 
 ```py
+import os
 from flask import Flask, request
 import time
 
@@ -466,7 +533,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def index():
-    return "Response from flask on " + request.host_url
+    return "Response from flask on " + os.environ.get('PORT')
 
 if __name__ == "__main__":
     # Only for debugging while developing
@@ -531,9 +598,115 @@ docker-compose up --build
 
 ![](../resources/img/load_balancer/21.png)
 
+Створимо в рутовій лиректорії директорію balancer а в ній Dockerfile і nginx.conf.
 
+**Dockerfile:**
+```
+FROM ubuntu:latest
+
+USER root
+
+RUN apt-get update
+RUN apt-get install -y nginx
+
+# Remove the default Nginx configuration file
+RUN rm -v /etc/nginx/nginx.conf
+
+# Copy a configuration file from the current directory
+ADD nginx.conf /etc/nginx/
+
+# Append "daemon off;" to the beginning of the configuration
+RUN echo "daemon off;" >> /etc/nginx/nginx.conf
+
+# Expose ports
+EXPOSE 80
+
+# Set the default command to execute
+# when creating a new container
+CMD ["/usr/sbin/nginx"]
+```
+
+На основі ubuntu ми поставмо nginx перезапишемой файл конфігурації і запустимо nginx.
+
+**nginx.conf:**
+```
+http {
+    upstream python-cluster {
+        server 172.17.0.1:8001;
+        server 172.17.0.1:8002;
+        server 172.17.0.1:8003;
+    }
+
+    server {
+        listen 80;
+
+        location / {
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_pass http://python-cluster;
+        }
+    }
+}
+events {
+    worker_connections 1024;
+}
+```
+
+В кофігурації ми створюємо кластер із 3-х серверів і розподіляємо навантаження між кластером з використанням Round-Robin(оскільки інше не вказано).
+
+Модифікуємо файл docker-compose.yml:
+```yml
+version: '3'
+
+services:
+  balancer:
+    build:
+      context: ./balancer
+      dockerfile: Dockerfile
+    image: balancer
+    ports:
+      - 80:80
+    depends_on: 
+      - web_1
+      - web_2
+      - web_3
+  web_1:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: web_1
+    ports:
+      - ${WEB_1_PORT}:${WEB_1_PORT}
+    environment:
+      - PORT=${WEB_1_PORT}
+  web_2:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: web_2
+    ports:
+      - ${WEB_2_PORT}:${WEB_2_PORT}
+    environment:
+      - PORT=${WEB_2_PORT}
+  web_3:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: web_3
+    ports:
+      - ${WEB_3_PORT}:${WEB_3_PORT}
+    environment:
+      - PORT=${WEB_3_PORT}
+```
+
+Запустити додатко можна за допомогою команди:
+
+```bash
+docker-compose up --build
+```
 
 ## Helth checks
+
+## Готовий проект
 
 # Домашнє завдання
 
