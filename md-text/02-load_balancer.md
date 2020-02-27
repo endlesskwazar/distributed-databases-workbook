@@ -852,9 +852,21 @@ services:
 docker-compose up --build
 ```
 
-## Helth checks
+Тепер проведемо експеремент:
+1. Зупинимо контейнер 2-го сервера ```docker stop pf_nginx_web_2_1 ```
+
+![](../resources/img/load_balancer/23.png)
+
+2. Подивимося як веде себе балансування навантаження
+3. Піднімемо контейнер 2-го сервера знову ```docker start -i pf_nginx_web_2_1 ```
+
+![](../resources/img/load_balancer/24.png)
+
+4. Подивимося як веде себе балансування навантаження
 
 ## Готовий проект
+
+Готовий проект можна знайти на [nginx_load_balancer](https://github.com/endlesskwazar/distributed-databases-examples/tree/nginx_load_balancer)
 
 # Домашнє завдання
 
