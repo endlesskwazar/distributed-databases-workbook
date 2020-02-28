@@ -661,7 +661,7 @@ WORKDIR /app
 
 COPY ./src .
 
-EXPOSE ${URL}
+EXPOSE ${PORT}
 
 ENTRYPOINT gunicorn --bind 0.0.0.0:${PORT} --workers=3 wsgi:app
 ```
