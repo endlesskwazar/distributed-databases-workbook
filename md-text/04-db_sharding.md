@@ -124,13 +124,13 @@ $ Q = mysql_query ( 'SELECT * FROM photos WHREE user_id ='. Intval ($ user_id), 
 
 # Sharding-JDBC
 
-[ShardingSphere](https://shardingsphere.apache.org/) is an open-source ecosystem consisted of a set of distributed database middleware solutions, including 3 independent products, Sharding-JDBC, Sharding-Proxy & Sharding-Sidecar (todo). They all provide functions of data sharding, distributed transaction and database orchestration, applicable in a variety of situations such as Java isomorphism, heterogeneous language and cloud native.
+[ShardingSphere](https://shardingsphere.apache.org/) являє собою екосистему з відкритим кодом, що складається з набору розподілених рішень проміжного програмного забезпечення баз даних, включаючи 3 незалежні продукти, Sharding-JDBC, Sharding-Proxy та Sharding-Sidecar (todo). Усі вони забезпечують функціонування даних, розподілення транзакцій та впорядкування баз даних, застосовних у різних ситуаціях, таких як ізоморфізм Java, неоднорідна мова та рідна хмара.
 
-**Sharding-JDBC** defines itself as a lightweight Java framework that provides extra service at Java JDBC layer. With client end connecting directly to the database, it provides service in the form of jar and requires no extra deployment and dependence. It can be considered as an enhanced JDBC driver, which is fully compatible with JDBC and all kinds of ORM frameworks.
+**Sharding-JDBC** визначає себе як легкий фреймворк Java, який надає додатковий сервіс на рівні Java JDBC. Оскільки клієнтський кінець підключається безпосередньо до бази даних, він надає сервіс у вигляді jar і не вимагає додаткового розгортання та залежності. Його можна розглядати як вдосконалений драйвер JDBC, який повністю сумісний з JDBC та всіма структурами ORM.
 
-- Applicable in any ORM framework based on Java, such as JPA, Hibernate, Mybatis, Spring JDBC Template or direct use of JDBC.
-- Based on any third-party database connection pool, such as DBCP, C3P0, BoneCP, Druid, HikariCP.
-- Support any kind of database that conforms to JDBC standard: MySQL，Oracle，SQLServer and PostgreSQL for now.
+- Застосовується в будь-якій системі ORM на базі Java, наприклад, JPA, Hibernate, Mybatis, Spring JDBC Шаблон або прямому використанні JDBC.
+- На основі будь-якого пулу підключень сторонніх баз даних, таких як DBCP, C3P0, BoneCP, Druid, HikariCP.
+- Підтримуйте будь-яку базу даних, яка відповідає стандарту JDBC: MySQL ， Oracle ， SQLServer і PostgreSQL.
 
 ## Sharding-JDBC demo
 
